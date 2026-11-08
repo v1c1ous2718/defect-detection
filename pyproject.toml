@@ -1,0 +1,13 @@
+[project]
+name = "defect-detection"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "anomalib>=2",
+    "nncf>=3.4.0",
+    "onnxscript>=0.7.2",
+    "openvino>=2026.4.1",
+    "ultralytics>=8.4.207",
+]
