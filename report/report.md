@@ -22,7 +22,7 @@
 - k ∈ {5, 10, 25, 50}，每個設定 3 個 seed（0/1/2），報 mean ± std。seed 同時決定抽哪 k 張瑕疵和哪 200 張正常圖。
 - 沒有任何超參數在 held-out 上調過。
 
-一開始 PatchCore 用全部約 900 張正常圖，memory bank 在 12 GB 顯卡上爆掉。在看到任何結果之前，改成兩個方法共用同一批 200 張。
+一開始 PatchCore 用全部約 900 張正常圖，memory bank 超出 12 GB 顯卡的記憶體。在看到任何結果之前，改成兩個方法共用同一批 200 張。
 
 ## 1. 交叉點
 
@@ -40,7 +40,7 @@ held-out image AUROC（mean ± std，3 seeds）：
 
 四類平均 AP：PatchCore 0.820；YOLO k=5/10/25/50 為 0.666 / 0.838 / 0.933 / 0.961。
 
-- 四類的交叉點都落在 k = 10 到 25 之間。k = 25 時 YOLO 在每一類都贏，k = 10 時只有 PCB3 打平（差 0.006，在 std 內）。
+- 四類的交叉點都落在 k = 10 到 25 之間。k = 25 時 YOLO 在每一類都贏，k = 10 時只有 PCB3 兩者相當（差 0.006，在 std 內）。
 - AP 的交叉比 AUROC 早一點：k = 10 的平均 AP 已經略高於 PatchCore。PatchCore 在 PCB2 的 AP 只有 0.721，排在最前面的高分裡混了不少正常圖。
 - k 小的時候 YOLO 很不穩。PCB3 在 k = 5 的 std 是 0.069，抽到哪 5 張影響很大。PatchCore 的 std 在每類都不超過 0.01。
 - PCB4 比較容易，PatchCore 已經 0.973，YOLO 到 k = 25 才多 0.017。
@@ -75,11 +75,11 @@ held-out image AUROC（mean ± std，3 seeds）：
 
 - YOLO 量化後延遲約減半，大小剩約四分之一，AUROC 每類最多掉 0.005。
 - PatchCore 量化幾乎沒有好處。延遲只快約 1.2×，因為時間主要花在 1,024 個 patch 對 20,480 筆 memory bank 的最近鄰搜尋，量化 backbone 省不了這段。AUROC 在 PCB1、PCB2 掉了約 0.05，PCB3 反而微升。
-- 只量化 backbone 這組是看到 PCB1 掉分之後才加的（post-hoc）。它在 PCB1 救回一半，在其他類別和全量化差不多，所以掉分主要來自 backbone 特徵本身的量化誤差，不是距離計算。
+- 只量化 backbone 這組是看到 PCB1 掉分之後才加的（post-hoc）。它在 PCB1 挽回約一半的掉分，在其他類別和全量化差不多，所以掉分主要來自 backbone 特徵本身的量化誤差，不是距離計算。
 - IR 大小：PatchCore 有約 120 MB 是 FP32 的 memory bank（20,480 × 1,536）。
 - 在 FP32 下，OpenVINO 和 PyTorch 的 AUROC 差距在 0.005 以內（PatchCore 幾乎完全一致）。YOLO 的小差異來自 GPU 換成 CPU，以及前處理的 letterbox 不同。
 
-部署時踩到的 anomalib 問題（都已繞過，細節在 `dd/deploy.py` 的註解）：
+部署時遇到的 anomalib 問題（都已繞過，細節在 `dd/deploy.py` 的註解）：
 
 1. 匯出時 batch = 2 被寫死在 resize 節點裡，改成匯出靜態的 batch-1 graph。
 2. `INT8_PTQ` 拿 val loader 做校正，而這裡的 val loader 就是 held-out 測試集。改成直接呼叫 `nncf.quantize`，只用 200 張正常訓練圖校正。
@@ -89,7 +89,7 @@ held-out image AUROC（mean ± std，3 seeds）：
 
 1. 在 VisA PCB 上，每類大約 10 到 25 張標註瑕疵，YOLO26n 就能贏過 PatchCore；到 25 張時四類全贏。
 2. 瑕疵圖很少（約 10 張以下）時，PatchCore 比較好，而且穩定很多。
-3. 要上 CPU 的話，YOLO26n 比 PatchCore 輕很多：FP32 下 IR 小約 23 倍、6 threads 延遲快約 10 倍，INT8 之後差距更大。PatchCore 的成本卡在 memory bank 搜尋，量化幫不上忙。
+3. 要上 CPU 的話，YOLO26n 比 PatchCore 輕很多：FP32 下 IR 小約 23 倍、6 threads 延遲快約 10 倍，INT8 之後差距更大。PatchCore 的時間主要花在 memory bank 搜尋，量化幫不上忙。
 4. 實務上的順序：產線剛開始、瑕疵圖很少時先用 PatchCore；累積到每類幾十張標註後改用 YOLO。
 
 ## 4. 限制
