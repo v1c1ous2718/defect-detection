@@ -36,6 +36,25 @@ CPU deployment (OpenVINO, NNCF post-training INT8, i5-12400, batch 1, network on
 INT8 halves YOLO26n latency for at most 0.005 AUROC. PatchCore gains about 1.2× because its time goes to the
 nearest-neighbour search over a 20,480-patch memory bank, and it loses up to 0.05 AUROC.
 
+## Method
+
+![method](report/figs/method.png)
+
+Top: PatchCore sees only normal images. A frozen WideResNet-50 turns each image into patch features, a greedy
+coreset keeps 10% of them as the memory bank, and at test time each patch's distance to its nearest normal patch
+forms the anomaly map; the image score is its maximum. Bottom: YOLO26n is fine-tuned on k labelled defects, and its
+image score is the highest box confidence. Both scores are evaluated by AUROC on the same held-out set. The
+thumbnails are real PCB4 images and model outputs.
+
+## Examples
+
+![qualitative](report/figs/qualitative.jpg)
+
+One held-out defect per category, drawn at random (`scripts/qual_fig.py`, seed 0), not picked by eye. Green: ground
+truth. Red: YOLO26n boxes. Corner: image score. YOLO26n with 5 labelled defects draws no box; with 25 it finds the
+defect. On PCB1 PatchCore gives the right image score, but its hot region sits on the normal pins next to the
+defect. AUROC does not see this, so a line that must locate defects needs a separate localization metric.
+
 ## Setup
 
 - PatchCore: anomalib 2.7 defaults (WideResNet-50 layer2+3, coreset 10%, 256 px), fitted on 200 normal images.
